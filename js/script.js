@@ -3,8 +3,8 @@
  *
  * Features:
  * 1. Create Account & Sign In mode switching + inline Forgot Password flow.
- * 2. Real-time validation, focus/blur events, phone auto-formatting, and Confirm Password check.
- * 3. Form-level error summary banner & Caps Lock indicator.
+ * 2. Real-time validation, focus/blur events, smart phone auto-formatting, and Confirm Password check.
+ * 3. Form-level error summary banner & per-field Caps Lock indicator.
  * 4. Real server-backed registration, login (with Remember Me), session check, and sign-out.
  */
 
@@ -37,12 +37,12 @@
   const toggleConfirmPasswordBtn = document.getElementById("toggleConfirmPassword");
   const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
   const capsLockWarning = document.getElementById("caps-lock-warning");
+  const confirmCapsLockWarning = document.getElementById("confirm-caps-lock-warning");
 
   const submitBtn = document.getElementById("submitBtn");
   const clearFormBtn = document.getElementById("clearFormBtn");
 
   // Password Strength Elements
-  const passwordStrengthSection = document.getElementById("passwordStrengthSection");
   const strengthBar = document.getElementById("strengthBar");
   const strengthLabel = document.getElementById("strengthLabel");
   const passwordRules = {
@@ -72,6 +72,7 @@
   const logoutBtn = document.getElementById("logoutBtn");
 
   const registerOnlyElements = document.querySelectorAll("[data-register-only='true']");
+  const registerOnlyInputs = [nameInput, phoneInput, confirmPasswordInput];
 
   // Application State: "register" | "login" | "forgot"
   let currentMode = "register";
@@ -103,7 +104,18 @@
       return "Email address is required.";
     }
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    if (!emailPattern.test(trimmed)) {
+    if (!emailPattern.test(trimmed) || trimmed.includes("..")) {
+      return "Please enter a valid email address (e.g., name@example.com).";
+    }
+    const [localPart, domainPart] = trimmed.split("@");
+    if (
+      !localPart ||
+      !domainPart ||
+      localPart.startsWith(".") ||
+      localPart.endsWith(".") ||
+      domainPart.startsWith(".") ||
+      domainPart.endsWith(".")
+    ) {
       return "Please enter a valid email address (e.g., name@example.com).";
     }
     return "";
@@ -126,22 +138,58 @@
   }
 
   /**
-   * Formats 10-digit local phone numbers as (555) 234-5678 while typing.
-   * Leaves international '+' numbers untouched beyond stripping invalid letters.
+   * Auto-formats 10-digit local phone numbers as (555) 234-5678 while typing,
+   * preserving cursor position. Leaves invalid characters (so validation errors
+   * display) and international '+' or 11+ digit numbers untouched.
    */
-  function formatPhoneInput(rawValue) {
-    const trimmed = rawValue.trim();
-    if (trimmed.startsWith("+")) {
-      return trimmed;
+  function applyPhoneFormatting(inputEl) {
+    const rawValue = inputEl.value;
+    if (!rawValue || rawValue.trim().startsWith("+")) {
+      return;
     }
 
-    const digits = rawValue.replace(/\D/g, "").slice(0, 10);
-    if (digits.length === 0) return "";
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    // Do not strip invalid characters like letters—let validation report the error
+    if (!/^[\d\s()-]+$/.test(rawValue)) {
+      return;
     }
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+
+    const digits = rawValue.replace(/\D/g, "");
+    if (digits.length === 0 || digits.length > 10) {
+      return;
+    }
+
+    let formatted;
+    if (digits.length <= 3) {
+      formatted = digits;
+    } else if (digits.length <= 6) {
+      formatted = `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    } else {
+      formatted = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+
+    if (formatted === rawValue) {
+      return;
+    }
+
+    // Preserve cursor position based on how many digits appeared before the cursor
+    const selectionStart = inputEl.selectionStart ?? rawValue.length;
+    const digitsBeforeCursor = rawValue.slice(0, selectionStart).replace(/\D/g, "").length;
+
+    inputEl.value = formatted;
+
+    let newCursorPos = formatted.length;
+    if (digitsBeforeCursor < digits.length) {
+      let seenDigits = 0;
+      newCursorPos = 0;
+      while (newCursorPos < formatted.length && seenDigits < digitsBeforeCursor) {
+        if (/\d/.test(formatted[newCursorPos])) {
+          seenDigits += 1;
+        }
+        newCursorPos += 1;
+      }
+    }
+
+    inputEl.setSelectionRange(newCursorPos, newCursorPos);
   }
 
   function evaluatePassword(value) {
@@ -314,8 +362,8 @@
   function refreshErrorSummaryIfVisible() {
     if (formErrorSummary.hidden) return;
     const activeFields = getActiveFields();
-    const invalidCount = activeFields.filter(
-      (f) => f.group.classList.contains("is-invalid")
+    const invalidCount = activeFields.filter((f) =>
+      f.group.classList.contains("is-invalid")
     ).length;
 
     if (invalidCount === 0) {
@@ -327,13 +375,7 @@
     }
   }
 
-  function resetAllFormFields() {
-    form.reset();
-    hideErrorSummary();
-    capsLockWarning.hidden = true;
-
-    fields.forEach(clearFieldState);
-
+  function resetPasswordVisibility() {
     passwordInput.type = "password";
     togglePasswordBtn.textContent = "Show";
     togglePasswordBtn.setAttribute("aria-pressed", "false");
@@ -343,7 +385,16 @@
     toggleConfirmPasswordBtn.textContent = "Show";
     toggleConfirmPasswordBtn.setAttribute("aria-pressed", "false");
     toggleConfirmPasswordBtn.setAttribute("aria-label", "Show confirm password");
+  }
 
+  function resetAllFormFields() {
+    form.reset();
+    hideErrorSummary();
+    capsLockWarning.hidden = true;
+    confirmCapsLockWarning.hidden = true;
+
+    fields.forEach(clearFieldState);
+    resetPasswordVisibility();
     updatePasswordStrengthUI("");
   }
 
@@ -352,9 +403,13 @@
   // =========================================================================
 
   function setMode(mode) {
+    if (isSubmitting) return;
+
+    const previousMode = currentMode;
     currentMode = mode;
     hideErrorSummary();
     capsLockWarning.hidden = true;
+    confirmCapsLockWarning.hidden = true;
 
     const isRegister = mode === "register";
     const isLogin = mode === "login";
@@ -393,6 +448,11 @@
       el.hidden = !isRegister;
     });
 
+    // Disable hidden register-only inputs in Sign In mode so autofill skips them
+    registerOnlyInputs.forEach((inputEl) => {
+      inputEl.disabled = !isRegister;
+    });
+
     rememberMeRow.hidden = !isLogin;
     forgotPasswordBtn.hidden = !isLogin;
 
@@ -420,11 +480,15 @@
       submitBtn.textContent = "Sign In";
     }
 
-    // Clear stale validation errors when toggling between Sign In and Create Account
-    fields.forEach(clearFieldState);
-    if (isRegister && passwordInput.value) {
-      updatePasswordStrengthUI(passwordInput.value);
+    // Clear password fields when switching between Sign In and Create Account
+    if (previousMode !== mode) {
+      passwordInput.value = "";
+      confirmPasswordInput.value = "";
+      resetPasswordVisibility();
+      updatePasswordStrengthUI("");
     }
+
+    fields.forEach(clearFieldState);
   }
 
   function showAuthenticatedView(user, modeLabel) {
@@ -471,15 +535,11 @@
 
     field.input.addEventListener("input", () => {
       if (field.key === "phone") {
-        const formatted = formatPhoneInput(field.input.value);
-        if (formatted !== field.input.value) {
-          field.input.value = formatted;
-        }
+        applyPhoneFormatting(field.input);
       }
 
       if (field.key === "password" && currentMode === "register") {
         updatePasswordStrengthUI(field.input.value);
-        // Re-validate Confirm Password in real time if already touched
         if (touchedFields.confirmPassword || confirmPasswordInput.value.length > 0) {
           touchedFields.confirmPassword = true;
           const confirmField = fields.find((f) => f.key === "confirmPassword");
@@ -498,20 +558,22 @@
     });
   });
 
-  // Caps Lock Detection on Password & Confirm Password inputs
-  function handleCapsLockEvent(event) {
-    if (typeof event.getModifierState === "function") {
-      capsLockWarning.hidden = !event.getModifierState("CapsLock");
+  // Per-field Caps Lock Detection
+  function bindCapsLockIndicator(inputEl, warningEl) {
+    function handleKeyEvent(event) {
+      if (typeof event.getModifierState === "function") {
+        warningEl.hidden = !event.getModifierState("CapsLock");
+      }
     }
+    inputEl.addEventListener("keydown", handleKeyEvent);
+    inputEl.addEventListener("keyup", handleKeyEvent);
+    inputEl.addEventListener("blur", () => {
+      warningEl.hidden = true;
+    });
   }
 
-  [passwordInput, confirmPasswordInput].forEach((inputEl) => {
-    inputEl.addEventListener("keydown", handleCapsLockEvent);
-    inputEl.addEventListener("keyup", handleCapsLockEvent);
-    inputEl.addEventListener("blur", () => {
-      capsLockWarning.hidden = true;
-    });
-  });
+  bindCapsLockIndicator(passwordInput, capsLockWarning);
+  bindCapsLockIndicator(confirmPasswordInput, confirmCapsLockWarning);
 
   // Show/Hide Password Toggles
   function bindPasswordToggle(buttonEl, inputEl, labelBase) {
@@ -575,6 +637,7 @@
   });
 
   resetEmailInput.addEventListener("input", () => {
+    resetStatusMessage.hidden = true;
     if (resetEmailInput.value.length > 0) {
       touchedFields.resetEmail = true;
     }
@@ -625,7 +688,8 @@
     isSubmitting = true;
     submitBtn.disabled = true;
     clearFormBtn.disabled = true;
-    const originalLabel = submitBtn.textContent;
+    tabRegister.disabled = true;
+    tabLogin.disabled = true;
     submitBtn.textContent =
       currentMode === "register" ? "Creating Account..." : "Signing In...";
 
@@ -655,6 +719,8 @@
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        let focusTarget = null;
+
         if (data.fieldErrors && typeof data.fieldErrors === "object") {
           activeFields.forEach((field) => {
             if (data.fieldErrors[field.key]) {
@@ -664,13 +730,26 @@
                 field.group,
                 data.fieldErrors[field.key]
               );
+              if (!focusTarget) {
+                focusTarget = field.input;
+              }
             }
           });
+        } else if (response.status === 401 && currentMode === "login") {
+          // Clear green valid styling on rejected credentials
+          activeFields.forEach((field) => {
+            field.group.classList.remove("is-valid");
+            field.input.removeAttribute("aria-invalid");
+          });
+          focusTarget = passwordInput;
         }
 
         showErrorSummary(
           data.error || "Unable to complete your request. Please check your details."
         );
+        if (focusTarget) {
+          focusTarget.focus();
+        }
         return;
       }
 
@@ -683,7 +762,10 @@
       isSubmitting = false;
       submitBtn.disabled = false;
       clearFormBtn.disabled = false;
-      submitBtn.textContent = originalLabel;
+      tabRegister.disabled = false;
+      tabLogin.disabled = false;
+      submitBtn.textContent =
+        currentMode === "register" ? "Create Account" : "Sign In";
     }
   });
 
@@ -752,7 +834,6 @@
     }
   });
 
-  // Restore active session on initial load if cookie exists
   async function checkExistingSession() {
     try {
       const response = await fetch("/api/me");

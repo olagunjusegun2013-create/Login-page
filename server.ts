@@ -32,6 +32,16 @@ const SESSION_COOKIE_NAME = "auth_session";
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PHONE_CHARS_REGEX = /^[+]?[\d\s().-]+$/;
 
+function isValidEmail(email: string): boolean {
+  if (!EMAIL_REGEX.test(email)) return false;
+  if (email.includes("..")) return false;
+  const [localPart, domainPart] = email.split("@");
+  if (!localPart || !domainPart) return false;
+  if (localPart.startsWith(".") || localPart.endsWith(".")) return false;
+  if (domainPart.startsWith(".") || domainPart.endsWith(".")) return false;
+  return true;
+}
+
 function readStore(): AuthStore {
   try {
     if (!fs.existsSync(STORE_PATH)) {
@@ -190,7 +200,7 @@ async function startServer(): Promise<void> {
 
     if (!emailRaw) {
       fieldErrors.email = "Email address is required.";
-    } else if (!EMAIL_REGEX.test(emailRaw)) {
+    } else if (!isValidEmail(emailRaw)) {
       fieldErrors.email = "Please enter a valid email address (e.g., name@example.com).";
     }
 
@@ -278,7 +288,7 @@ async function startServer(): Promise<void> {
     const fieldErrors: Record<string, string> = {};
     if (!emailRaw) {
       fieldErrors.email = "Email address is required.";
-    } else if (!EMAIL_REGEX.test(emailRaw)) {
+    } else if (!isValidEmail(emailRaw)) {
       fieldErrors.email = "Please enter a valid email address (e.g., name@example.com).";
     }
 
@@ -335,7 +345,7 @@ async function startServer(): Promise<void> {
       return;
     }
 
-    if (!EMAIL_REGEX.test(emailRaw)) {
+    if (!isValidEmail(emailRaw)) {
       res.status(400).json({
         error: "Please enter a valid email address.",
         fieldErrors: { resetEmail: "Please enter a valid email address (e.g., name@example.com)." },
@@ -371,7 +381,7 @@ async function startServer(): Promise<void> {
   } else {
     const distDir = path.resolve(process.cwd(), "dist");
     app.use(express.static(distDir));
-    app.get("*all", (_req: Request, res: Response) => {
+    app.get("*", (_req: Request, res: Response) => {
       res.sendFile(path.join(distDir, "index.html"));
     });
   }

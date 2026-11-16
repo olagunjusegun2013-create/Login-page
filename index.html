@@ -213,7 +213,7 @@
                 autocomplete="new-password"
                 required
                 aria-required="true"
-                aria-describedby="confirmPassword-error"
+                aria-describedby="confirm-caps-lock-warning confirmPassword-error"
               />
               <button
                 type="button"
@@ -226,6 +226,9 @@
               </button>
               <span class="status-icon status-icon--password" aria-hidden="true"></span>
             </div>
+            <p id="confirm-caps-lock-warning" class="caps-warning" role="status" hidden>
+              Caps Lock is on
+            </p>
             <p id="confirmPassword-error" class="error-message" role="alert" aria-live="polite"></p>
           </div>
 
