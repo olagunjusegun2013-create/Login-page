@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Form Validator</title>
+    <meta
+      name="description"
+      content="An interactive HTML5, CSS3, and JavaScript login and registration form with real-time validation, focus/blur feedback, and secure authentication."
+    />
+    <meta property="og:title" content="Interactive Form Validator" />
+    <meta
+      property="og:description"
+      content="An interactive HTML5, CSS3, and JavaScript login and registration form with real-time validation, focus/blur feedback, and secure authentication."
+    />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <main class="page-wrapper">
+      <section class="form-card" aria-labelledby="form-heading">
+        <!-- Segmented Mode Switcher: Create Account | Sign In -->
+        <div id="modeSwitcher" class="mode-switcher" role="tablist" aria-label="Authentication mode">
+          <button
+            type="button"
+            id="tab-register"
+            class="mode-tab is-active"
+            role="tab"
+            aria-selected="true"
+            data-mode="register"
+          >
+            Create Account
+          </button>
+          <button
+            type="button"
+            id="tab-login"
+            class="mode-tab"
+            role="tab"
+            aria-selected="false"
+            data-mode="login"
+          >
+            Sign In
+          </button>
+        </div>
+
+        <header id="formHeader" class="form-header">
+          <h1 id="form-heading" class="form-title">Create Your Account</h1>
+          <p id="form-subtitle" class="form-subtitle">
+            Complete the required fields below. Each field validates in real time as you type and when you leave an input.
+          </p>
+        </header>
+
+        <!-- Form-Level Error Summary Banner -->
+        <div
+          id="formErrorSummary"
+          class="form-error-summary"
+          role="alert"
+          aria-live="assertive"
+          hidden
+        >
+          <span class="summary-alert-icon" aria-hidden="true">!</span>
+          <span id="formErrorSummaryText"></span>
+        </div>
+
+        <!-- Primary Auth Form (handles both Create Account and Sign In modes) -->
+        <form id="interactiveForm" class="interactive-form" novalidate>
+          <!-- Field A: Full Name (Create Account mode only) -->
+          <div class="form-group" id="group-name" data-register-only="true">
+            <label for="name" class="form-label">
+              Full Name <span class="required-mark" aria-hidden="true">*</span>
+            </label>
+            <div class="input-wrapper">
+              <input
+                type="text"
+                id="name"
+                name="name"
+                class="form-input"
+                placeholder="Jane Doe"
+                autocomplete="name"
+                required
+                aria-required="true"
+                aria-describedby="name-hint name-error"
+              />
+              <span class="status-icon" aria-hidden="true"></span>
+            </div>
+            <p id="name-hint" class="field-hint">Enter your full name.</p>
+            <p id="name-error" class="error-message" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- Field B: Email Address -->
+          <div class="form-group" id="group-email">
+            <label for="email" class="form-label">
+              Email Address <span class="required-mark" aria-hidden="true">*</span>
+            </label>
+            <div class="input-wrapper">
+              <input
+                type="email"
+                id="email"
+                name="email"
+                class="form-input"
+                placeholder="jane.doe@example.com"
+                autocomplete="email"
+                required
+                aria-required="true"
+                aria-describedby="email-hint email-error"
+              />
+              <span class="status-icon" aria-hidden="true"></span>
+            </div>
+            <p id="email-hint" class="field-hint">Use a valid email format (e.g., name@domain.com).</p>
+            <p id="email-error" class="error-message" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- Field C: Phone Number (Create Account mode only) -->
+          <div class="form-group" id="group-phone" data-register-only="true">
+            <label for="phone" class="form-label">
+              Phone Number <span class="required-mark" aria-hidden="true">*</span>
+            </label>
+            <div class="input-wrapper">
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                class="form-input"
+                placeholder="(555) 234-5678"
+                autocomplete="tel"
+                required
+                aria-required="true"
+                aria-describedby="phone-hint phone-error"
+              />
+              <span class="status-icon" aria-hidden="true"></span>
+            </div>
+            <p id="phone-hint" class="field-hint">Auto-formats 10-digit numbers; 10 to 15 digits required.</p>
+            <p id="phone-error" class="error-message" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- Field D: Password -->
+          <div class="form-group" id="group-password">
+            <div class="label-row">
+              <label for="password" class="form-label">
+                Password <span class="required-mark" aria-hidden="true">*</span>
+              </label>
+              <button
+                type="button"
+                id="forgotPasswordBtn"
+                class="inline-link-btn"
+                hidden
+              >
+                Forgot password?
+              </button>
+            </div>
+            <div class="input-wrapper input-wrapper--password">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="form-input form-input--password"
+                placeholder="Create a strong password"
+                autocomplete="new-password"
+                required
+                aria-required="true"
+                aria-describedby="caps-lock-warning password-strength-text password-rules password-error"
+              />
+              <button
+                type="button"
+                id="togglePassword"
+                class="toggle-password-btn"
+                aria-label="Show password"
+                aria-pressed="false"
+              >
+                Show
+              </button>
+              <span class="status-icon status-icon--password" aria-hidden="true"></span>
+            </div>
+
+            <p id="caps-lock-warning" class="caps-warning" role="status" hidden>
+              Caps Lock is on
+            </p>
+
+            <!-- Strength Meter & Checklist (Create Account mode only) -->
+            <div id="passwordStrengthSection" data-register-only="true">
+              <div class="strength-meter" aria-hidden="true">
+                <div id="strengthBar" class="strength-bar"></div>
+              </div>
+              <p id="password-strength-text" class="strength-text">
+                Strength: <span id="strengthLabel">Not entered</span>
+              </p>
+
+              <ul id="password-rules" class="password-rules" aria-label="Password requirements">
+                <li id="rule-length" class="rule-item">At least 8 characters</li>
+                <li id="rule-upper" class="rule-item">One uppercase letter (A–Z)</li>
+                <li id="rule-lower" class="rule-item">One lowercase letter (a–z)</li>
+                <li id="rule-number" class="rule-item">One number (0–9)</li>
+                <li id="rule-special" class="rule-item">One special character (!@#$%^&amp;*)</li>
+              </ul>
+            </div>
+
+            <p id="password-error" class="error-message" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- Confirm Password (Create Account mode only) -->
+          <div class="form-group" id="group-confirmPassword" data-register-only="true">
+            <label for="confirmPassword" class="form-label">
+              Confirm Password <span class="required-mark" aria-hidden="true">*</span>
+            </label>
+            <div class="input-wrapper input-wrapper--password">
+              <input
+                type="password"
+                id="confirmPassword"
+                name="confirmPassword"
+                class="form-input form-input--password"
+                placeholder="Re-enter your password"
+                autocomplete="new-password"
+                required
+                aria-required="true"
+                aria-describedby="confirmPassword-error"
+              />
+              <button
+                type="button"
+                id="toggleConfirmPassword"
+                class="toggle-password-btn"
+                aria-label="Show confirm password"
+                aria-pressed="false"
+              >
+                Show
+              </button>
+              <span class="status-icon status-icon--password" aria-hidden="true"></span>
+            </div>
+            <p id="confirmPassword-error" class="error-message" role="alert" aria-live="polite"></p>
+          </div>
+
+          <!-- Remember Me Checkbox (Sign In mode only) -->
+          <div id="rememberMeRow" class="checkbox-row" hidden>
+            <label class="checkbox-label" for="rememberMe">
+              <input type="checkbox" id="rememberMe" name="rememberMe" class="checkbox-input" />
+              <span>Keep me signed in for 30 days</span>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="submitBtn" class="submit-btn">
+              Create Account
+            </button>
+            <button type="button" id="clearFormBtn" class="secondary-btn">
+              Clear Form
+            </button>
+          </div>
+        </form>
+
+        <!-- Inline Forgot Password Panel -->
+        <form id="forgotPasswordForm" class="interactive-form" novalidate hidden>
+          <div class="form-group" id="group-resetEmail">
+            <label for="resetEmail" class="form-label">
+              Account Email Address <span class="required-mark" aria-hidden="true">*</span>
+            </label>
+            <div class="input-wrapper">
+              <input
+                type="email"
+                id="resetEmail"
+                name="resetEmail"
+                class="form-input"
+                placeholder="jane.doe@example.com"
+                autocomplete="email"
+                required
+                aria-required="true"
+                aria-describedby="resetEmail-hint resetEmail-error"
+              />
+              <span class="status-icon" aria-hidden="true"></span>
+            </div>
+            <p id="resetEmail-hint" class="field-hint">
+              Enter the email linked to your account and we will send reset instructions.
+            </p>
+            <p id="resetEmail-error" class="error-message" role="alert" aria-live="polite"></p>
+          </div>
+
+          <p id="resetStatusMessage" class="reset-status-message" role="status" hidden></p>
+
+          <div class="form-actions">
+            <button type="submit" id="sendResetBtn" class="submit-btn">
+              Send Reset Instructions
+            </button>
+            <button type="button" id="backToLoginBtn" class="secondary-btn">
+              Back to Sign In
+            </button>
+          </div>
+        </form>
+
+        <!-- Authenticated / Submission Confirmation Panel -->
+        <div
+          id="successPanel"
+          class="success-panel"
+          role="status"
+          aria-live="polite"
+          hidden
+        >
+          <div class="success-icon-circle" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h2 id="successTitle" class="success-title">Account Created</h2>
+          <p id="successDescription" class="success-description">
+            Your account passed validation and you are now signed in.
+          </p>
+          <dl class="submission-summary">
+            <div class="summary-row">
+              <dt>Name</dt>
+              <dd id="summary-name"></dd>
+            </div>
+            <div class="summary-row">
+              <dt>Email</dt>
+              <dd id="summary-email"></dd>
+            </div>
+            <div class="summary-row">
+              <dt>Phone Number</dt>
+              <dd id="summary-phone"></dd>
+            </div>
+          </dl>
+          <button type="button" id="logoutBtn" class="secondary-btn">
+            Sign Out
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./js/script.js"></script>
+  </body>
+</html>
